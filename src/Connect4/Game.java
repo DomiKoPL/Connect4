@@ -21,6 +21,7 @@ import javafx.util.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -51,12 +52,14 @@ public class Game {
 
     private boolean redMove = true;
     private boolean canMove = true;
+    private boolean gameWithBot = false;
 
     private  Disc[][] grid = new Disc[COLUMNS][ROWS];
 
     private Pane discRoot = new Pane();
 
     Label winMessage;
+
     private Parent createContent(){
         Pane root = new Pane();
         root.getChildren().add(discRoot);
@@ -76,7 +79,40 @@ public class Game {
         winMessage.setVisible(false);
         winMessage.setOnMouseClicked(e -> restart());
 
+        Label pvp = new Label("Player vs Player");
+        Label pvb = new Label("Player vs Bot");
+
+        pvp.setMinHeight(HEIGHT / 2);
+        pvp.setMaxHeight(HEIGHT / 2);
+        pvp.setMinWidth(WIDTH);
+        pvp.setMaxWidth(WIDTH);
+        pvp.setAlignment(Pos.CENTER);
+        pvp.setTextFill(Color.RED);
+        pvp.setFont(Font.font("Times New Roman",FontWeight.BOLD,90));
+        pvp.setOnMouseClicked(e -> {
+            gameWithBot = false;
+            pvp.setVisible(false);
+            pvb.setVisible(false);
+        });
+
+        pvb.setMinHeight(HEIGHT / 2);
+        pvb.setMaxHeight(HEIGHT / 2);
+        pvb.setTranslateY(HEIGHT/2);
+        pvb.setMinWidth(WIDTH);
+        pvb.setMaxWidth(WIDTH);
+        pvb.setAlignment(Pos.CENTER);
+        pvb.setTextFill(Color.RED);
+        pvb.setFont(Font.font("Times New Roman",FontWeight.BOLD,90));
+        pvb.setOnMouseClicked(e -> {
+            gameWithBot = true;
+            pvp.setVisible(false);
+            pvb.setVisible(false);
+        });
+
         root.getChildren().add(winMessage);
+        root.getChildren().add(pvp);
+        root.getChildren().add(pvb);
+
         return root;
     }
 
@@ -132,6 +168,10 @@ public class Game {
         if(!canMove)
             return;
 
+        if(gameWithBot && !redMove)
+            return;
+
+
         int row = ROWS - 1;
         do{
             if(!getDisc(column,row).isPresent())
@@ -157,10 +197,62 @@ public class Game {
             if(gameEnded(column,currentRow)){
                 gameOver();
             }
-            redMove = !redMove;
-            canMove = true;
+            else{
+                redMove = !redMove;
+                canMove = true;
+
+                if(gameWithBot && !redMove){
+                    botMove(new Disc(redMove));
+                }
+            }
         });
         animation.play();
+    }
+
+    private void botMove(Disc disc){
+        if(!canMove)
+            return;
+
+        System.out.println("Bot move");
+        Random gen = new Random();
+
+        while(true){
+
+            int column = gen.nextInt(COLUMNS);
+
+            int row = ROWS - 1;
+            do{
+                if(!getDisc(column,row).isPresent())
+                    break;
+
+                row--;
+            }while(row >= 0);
+
+            if(row < 0)
+                continue;
+
+            canMove = false;
+
+            grid[column][row] = disc;
+            discRoot.getChildren().add(disc);
+            disc.setTranslateX(column * (TILE_SIZE + 5) + TILE_SIZE / 3);
+
+            final int currentRow = row;
+
+            TranslateTransition animation = new TranslateTransition(Duration.seconds(0.5),disc);
+            animation.setToY(row * (TILE_SIZE + 5) + TILE_SIZE/3);
+            animation.setOnFinished(e -> {
+                if(gameEnded(column,currentRow)){
+                    gameOver();
+                }
+                else{
+                    redMove = !redMove;
+                    canMove = true;
+                }
+            });
+            animation.play();
+            return;
+        }
     }
 
     private boolean gameEnded(int column , int row){
@@ -207,9 +299,9 @@ public class Game {
     }
 
     private void gameOver(){
+        canMove = false;
         winMessage.setVisible(true);
         winMessage.setText((redMove ? "Red" : "Yellow") + " won");
-
         //System.out.println((redMove ? "Red" : "Yellow") + " won");//DEBUG
     }
 
