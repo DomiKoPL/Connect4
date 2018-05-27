@@ -44,6 +44,11 @@ public class Game {
         stage.show();
     }
 
+
+    private static final byte EMPTY = 0;
+    private static final byte PLAYER1 = 1;
+    private static final byte PLAYER2 = 2;
+
     private static final int TILE_SIZE = 80;
     private static final int COLUMNS = 7;
     private static final int ROWS = 6;
@@ -54,8 +59,8 @@ public class Game {
     private boolean canMove = true;
     private boolean gameWithBot = false;
 
-    private  Disc[][] grid = new Disc[COLUMNS][ROWS];
-
+    private  byte[][] grid = new byte[COLUMNS][ROWS];
+    private int[] lastEmpty = new int[COLUMNS];
     private Pane discRoot = new Pane();
 
     Label winMessage;
@@ -88,11 +93,18 @@ public class Game {
         pvp.setMaxWidth(WIDTH);
         pvp.setAlignment(Pos.CENTER);
         pvp.setTextFill(Color.RED);
+        pvp.setStyle("-fx-background-color: white;");
         pvp.setFont(Font.font("Times New Roman",FontWeight.BOLD,90));
         pvp.setOnMouseClicked(e -> {
             gameWithBot = false;
             pvp.setVisible(false);
             pvb.setVisible(false);
+        });
+        pvp.setOnMouseEntered(e ->{
+            pvp.setTextFill(Color.rgb(180,17,0));
+        });
+        pvp.setOnMouseExited(e ->{
+            pvp.setTextFill(Color.RED);
         });
 
         pvb.setMinHeight(HEIGHT / 2);
@@ -102,16 +114,25 @@ public class Game {
         pvb.setMaxWidth(WIDTH);
         pvb.setAlignment(Pos.CENTER);
         pvb.setTextFill(Color.RED);
+        pvb.setStyle("-fx-background-color: white;");
         pvb.setFont(Font.font("Times New Roman",FontWeight.BOLD,90));
         pvb.setOnMouseClicked(e -> {
             gameWithBot = true;
             pvp.setVisible(false);
             pvb.setVisible(false);
         });
+        pvb.setOnMouseEntered(e ->{
+            pvb.setTextFill(Color.rgb(180,17,0));
+        });
+        pvb.setOnMouseExited(e ->{
+            pvb.setTextFill(Color.RED);
+        });
 
         root.getChildren().add(winMessage);
         root.getChildren().add(pvp);
         root.getChildren().add(pvb);
+
+        restart();
 
         return root;
     }
@@ -137,7 +158,7 @@ public class Game {
 
         Lighting lighting = new Lighting();
         lighting.setLight(light);
-        lighting.setSurfaceScale(5.0);
+        lighting.setSurfaceScale(3.0);
 
         shape.setFill(Color.BLUE);
         shape.setEffect(lighting);
@@ -171,21 +192,14 @@ public class Game {
         if(gameWithBot && !redMove)
             return;
 
-
-        int row = ROWS - 1;
-        do{
-            if(!getDisc(column,row).isPresent())
-                break;
-
-            row--;
-        }while(row >= 0);
-
-        if(row < 0)
+        if(lastEmpty[column] < 0)
             return;
+
+        int row = lastEmpty[column]--;
 
         canMove = false;
 
-        grid[column][row] = disc;
+        grid[column][row] = (disc.red ? PLAYER1 : PLAYER2);
         discRoot.getChildren().add(disc);
         disc.setTranslateX(column * (TILE_SIZE + 5) + TILE_SIZE / 3);
 
@@ -213,86 +227,54 @@ public class Game {
         if(!canMove)
             return;
 
-        System.out.println("Bot move");
-        Random gen = new Random();
+        int column = Bot.getInstance().getBestMove(grid,lastEmpty);
+        int row = lastEmpty[column]--;
 
-        while(true){
+        canMove = false;
 
-            int column = gen.nextInt(COLUMNS);
+        grid[column][row] = (disc.red ? PLAYER1 : PLAYER2);
+        discRoot.getChildren().add(disc);
+        disc.setTranslateX(column * (TILE_SIZE + 5) + TILE_SIZE / 3);
 
-            int row = ROWS - 1;
-            do{
-                if(!getDisc(column,row).isPresent())
-                    break;
+        final int currentRow = row;
 
-                row--;
-            }while(row >= 0);
-
-            if(row < 0)
-                continue;
-
-            canMove = false;
-
-            grid[column][row] = disc;
-            discRoot.getChildren().add(disc);
-            disc.setTranslateX(column * (TILE_SIZE + 5) + TILE_SIZE / 3);
-
-            final int currentRow = row;
-
-            TranslateTransition animation = new TranslateTransition(Duration.seconds(0.5),disc);
-            animation.setToY(row * (TILE_SIZE + 5) + TILE_SIZE/3);
-            animation.setOnFinished(e -> {
-                if(gameEnded(column,currentRow)){
-                    gameOver();
-                }
-                else{
-                    redMove = !redMove;
-                    canMove = true;
-                }
-            });
-            animation.play();
-            return;
-        }
+        TranslateTransition animation = new TranslateTransition(Duration.seconds(0.5),disc);
+        animation.setToY(row * (TILE_SIZE + 5) + TILE_SIZE/3);
+        animation.setOnFinished(e -> {
+           if(gameEnded(column,currentRow)){
+               gameOver();
+           }
+           else{
+               redMove = !redMove;
+               canMove = true;
+           }
+        });
+        animation.play();
     }
 
     private boolean gameEnded(int column , int row){
-        List<Point2D> vertical = IntStream.rangeClosed(row - 3 , row + 3)
-                .mapToObj(r -> new Point2D(column,r))
-                .collect(Collectors.toList());
-
-        List<Point2D> horizontal = IntStream.rangeClosed(column - 3 , column + 3)
-                .mapToObj(c -> new Point2D(c,row))
-                .collect(Collectors.toList());
-
-        Point2D topLeft = new Point2D(column - 3 , row - 3);
-        List<Point2D> diagonal1 = IntStream.rangeClosed(0,6)
-                .mapToObj(i -> topLeft.add( i , i))
-                .collect(Collectors.toList());
-
-        Point2D botLeft = new Point2D(column - 3 , row + 3);
-        List<Point2D> diagonal2 = IntStream.rangeClosed(0,6)
-                .mapToObj(i -> botLeft.add( i , -i))
-                .collect(Collectors.toList());
-
-        return checkRange(vertical) || checkRange(horizontal) || checkRange(diagonal1) || checkRange(diagonal2);
+        return checkRange(column,row - 3 , 0, 1)
+                || checkRange(column - 3, row , 1,0)
+                || checkRange(column - 3 , row -3,1,1)
+                || checkRange(column-3,row + 3, 1,-1);
     }
 
-    private boolean checkRange(List<Point2D> points){
+    private boolean checkRange(int column, int row , int dColumn ,int dRow){
         int chain = 0;
 
-        for(Point2D p : points){
-            int column = (int)p.getX();
-            int row = (int)p.getY();
+        for(int i = 0 ; i < 7; i++){
+            byte disc = getDisc(column,row);
 
-            Disc disc = getDisc(column,row).orElse(new Disc(!redMove));
-
-            if(disc.red == redMove){
+            if((disc == PLAYER1 && redMove) || (disc == PLAYER2 && !redMove)){
                 if(++chain == 4){
                     return true;
                 }
             }else{
                 chain = 0;
             }
+
+            column += dColumn;
+            row += dRow;
         }
 
         return false;
@@ -312,16 +294,22 @@ public class Game {
         canMove = true;
         redMove = true;
 
-        grid = new Disc[COLUMNS][ROWS];
+        grid = new byte[COLUMNS][ROWS];
+
+        lastEmpty = new int[COLUMNS];
+
+        for(int i = 0 ; i < COLUMNS; i++){
+            lastEmpty[i] = ROWS - 1;
+        }
 
         discRoot.getChildren().clear();
     }
 
-    private Optional<Disc> getDisc(int column , int row){
+    private byte getDisc(int column , int row){
         if(column < 0 || column >= COLUMNS || row < 0 || row >= ROWS)
-            return Optional.empty();
+            return 0;
 
-        return Optional.ofNullable(grid[column][row]);
+        return grid[column][row];
     }
 
     private static class Disc extends Circle {

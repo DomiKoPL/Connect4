@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/FXTutorial.iml" filepath="$PROJECT_DIR$/FXTutorial.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Connect4b.iml" filepath="$PROJECT_DIR$/Connect4b.iml" />
     </modules>
   </component>
 </project>
