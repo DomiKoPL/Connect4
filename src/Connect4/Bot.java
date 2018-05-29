@@ -21,7 +21,7 @@ public class Bot {
         return INSTANCE;
     }
 
-    private static final int maxDepth = 8;
+    private static final int maxDepth = 9;
 
     private static final byte EMPTY = 0;
     private static final byte PLAYER1 = 1;
@@ -37,35 +37,39 @@ public class Bot {
     private byte[][] grid;
     private int[] lastEmpty;
 
-    public int getBestMove(byte[][] grid, int[] lastEmpty){
+    public int getBestMove(byte[][] grid, int[] lastEmpty, int playerLastMove){
         this.grid = grid;
         this.lastEmpty = lastEmpty;
-        return bestMove();
+        return bestMove(playerLastMove);
     }
 
-    private int bestMove(){
-        State bestRes = new State(LOSE,0);
-        List<Integer>bestMoves = new ArrayList<>();
+    private int bestMove(int playerLastMove){
+        State bestRes = new State(LOSE,0,0);
+        int bestColumn = playerLastMove;
 
         for(int i = 0 ; i < COLUMNS; ++i){
             if(lastEmpty[i] >= 0){
                 State res = simulateMovements(i,PLAYER2,1);
+
                 if(res.state > bestRes.state){
-                    bestMoves = new ArrayList<>();
-                    bestMoves.add(i);
                     bestRes = res;
+                    bestColumn = i;
                 }else if(res.state == bestRes.state && res.depth > bestRes.depth){
                     bestRes = res;
-                    bestMoves = new ArrayList<>();
-                    bestMoves.add(i);
-                }else if(res.depth == bestRes.depth){
-                    bestMoves.add(i);
+                    bestColumn = i;
+                }else if(res.depth == bestRes.depth && res.probability > bestRes.probability){
+                    bestRes = res;
+                    bestColumn = i;
                 }
-                System.out.print((res.state == WIN ? "WIN " : (res.state == LOSE ? "LOSE " : "DRAW ")) + res.depth + " ");
+                System.out.print((res.state == WIN ? "WIN " : (res.state == LOSE ? "LOSE " : "DRAW ")) + res.depth + " " + String.format("%.2f",res.probability )+ " ");
+            }
+            else
+            {
+                System.out.print("            ");
             }
         }
         System.out.print("\n");
-        return bestMoves.get(0);
+        return bestColumn;
     }
 
     private State simulateMovements(int column,byte player, int depth){
@@ -76,16 +80,16 @@ public class Bot {
         if(player == PLAYER2 && win){
             lastEmpty[column]++;
             grid[column][row] = EMPTY;
-            return new State(WIN,depth);
+            return new State(WIN,depth,1);
         }else if(player == PLAYER1 && win){
             lastEmpty[column]++;
             grid[column][row] = EMPTY;
-            return new State(LOSE,depth);
+            return new State(LOSE,depth,1);
         }
 
 
         byte nextPlayer = (player == PLAYER1 ? PLAYER2 : PLAYER1);
-        State bestRes = new State(LOSE,depth);
+        State bestRes = new State(LOSE,depth,1);
         boolean canMove = false;
         int nDepth = depth + 1;
         for(int i = 0 ; i < COLUMNS; i++){
@@ -95,15 +99,23 @@ public class Bot {
                 if(player == PLAYER2){
                     if(!canMove || res.state < bestRes.state){
                         bestRes = res;
+                        bestRes.probability = (res.probability / (double) COLUMNS);
                     }
-                    else if(res.state == bestRes.state && res.depth < bestRes.depth){
-                        bestRes = res;
+                    else if(res.state == bestRes.state ){
+                        if(res.depth < bestRes.depth)
+                            bestRes.depth = res.depth;
+
+                        bestRes.probability += (res.probability / (double) COLUMNS);
                     }
                 }else{
                     if(!canMove || res.state > bestRes.state){
                         bestRes = res;
-                    }else if(res.state == bestRes.state && res.depth < bestRes.depth){
-                        bestRes = res;
+                        bestRes.probability = (res.probability / (double) COLUMNS);
+                    }else if(res.state == bestRes.state){
+                        if(res.depth < bestRes.depth)
+                            bestRes.depth = res.depth;
+
+                        bestRes.probability += (res.probability / (double) COLUMNS);
                     }
                 }
                 canMove = true;
@@ -114,7 +126,7 @@ public class Bot {
         grid[column][row] = EMPTY;
 
         if(!canMove){
-            return new State(DRAW,depth);
+            return new State(DRAW,depth,1);
         }
 
         if(player == PLAYER2){
@@ -122,11 +134,11 @@ public class Bot {
         }
 
         if(bestRes.state == WIN){
-            return new State(LOSE,bestRes.depth);
+            bestRes.state = LOSE;
         }else if(bestRes.state == LOSE){
-            return new State(WIN,bestRes.depth);
+            bestRes.state = WIN;
         }
-        return new State(DRAW,bestRes.depth);
+        return bestRes;
     }
 
     private byte getDisc(int column , int row){
@@ -165,11 +177,13 @@ public class Bot {
     }
 
     class State{
-        final byte state;
-        final int depth;
-        State(byte state, int depth){
+        byte state;
+        int depth;
+        double probability;
+        State(byte state, int depth, double probability){
             this.state = state;
             this.depth = depth;
+            this.probability = probability;
         }
     }
 }

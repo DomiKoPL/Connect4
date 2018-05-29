@@ -58,6 +58,7 @@ public class Game {
     private boolean redMove = true;
     private boolean canMove = true;
     private boolean gameWithBot = false;
+    private boolean draw = false;
 
     private  byte[][] grid = new byte[COLUMNS][ROWS];
     private int[] lastEmpty = new int[COLUMNS];
@@ -216,18 +217,18 @@ public class Game {
                 canMove = true;
 
                 if(gameWithBot && !redMove){
-                    botMove(new Disc(redMove));
+                    botMove(new Disc(redMove),column);
                 }
             }
         });
         animation.play();
     }
 
-    private void botMove(Disc disc){
+    private void botMove(Disc disc, int playerLastMove){
         if(!canMove)
             return;
 
-        int column = Bot.getInstance().getBestMove(grid,lastEmpty);
+        int column = Bot.getInstance().getBestMove(grid,lastEmpty,playerLastMove);
         int row = lastEmpty[column]--;
 
         canMove = false;
@@ -253,7 +254,17 @@ public class Game {
     }
 
     private boolean gameEnded(int column , int row){
-        return checkRange(column,row - 3 , 0, 1)
+
+        draw = true;
+        for (int i = 0 ; i < COLUMNS;i++){
+            if(lastEmpty[i] >= 0){
+                draw = false;
+                break;
+            }
+        }
+
+        return draw
+                || checkRange(column,row - 3 , 0, 1)
                 || checkRange(column - 3, row , 1,0)
                 || checkRange(column - 3 , row -3,1,1)
                 || checkRange(column-3,row + 3, 1,-1);
@@ -283,8 +294,12 @@ public class Game {
     private void gameOver(){
         canMove = false;
         winMessage.setVisible(true);
-        winMessage.setText((redMove ? "Red" : "Yellow") + " won");
-        //System.out.println((redMove ? "Red" : "Yellow") + " won");//DEBUG
+        if(draw){
+            winMessage.setText("Draw");
+        }
+        else {
+            winMessage.setText((redMove ? "Red" : "Yellow") + " won");
+        }
     }
 
     private void restart(){
