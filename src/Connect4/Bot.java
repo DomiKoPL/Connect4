@@ -14,11 +14,10 @@ public class Bot {
     private static Bot INSTANCE;
     private Thread[] threads = new Thread[7];
     private Runnable[] runners = new Runnable[7];
+    private  List<State> result = new ArrayList<>();
 
     private Bot(){
-
     }
-
 
     public static Bot getInstance(){
         if(INSTANCE == null){
@@ -27,48 +26,46 @@ public class Bot {
         return INSTANCE;
     }
 
-    private static final int maxDepth = 9;
-
-    private static final byte EMPTY = 0;
-    private static final byte PLAYER1 = 1;
-    private static final byte PLAYER2 = 2;//BOT
-
     private static final int COLUMNS = 7;
     private static final int ROWS = 6;
-
-    private static final byte LOSE = -1;
-    private static final byte DRAW = 0;
-    private static final byte WIN = 1;
 
     private byte[][] grid;
     private int[] lastEmpty;
 
+
+    public byte[][] getGrid(){
+        return grid;
+    }
+
+    public int[] getLastEmpty(){
+        return lastEmpty;
+    }
+
+    boolean made = false;
+
     public int getBestMove(byte[][] grid, int[] lastEmpty, int playerLastMove){
         this.grid = grid;
         this.lastEmpty = lastEmpty;
+
+        if(!made){
+            made = true;
+            for (int  i = 0 ; i < COLUMNS; i++){
+                runners[i] = new BotHelper(i, result);
+                threads[i] = new Thread(runners[i]);
+            }
+        }
         return bestMove(playerLastMove);
     }
 
+
     private int bestMove(int playerLastMove){
-        State bestRes = new State(LOSE,0,0);
+        State bestRes = new State((byte)-1,0,0);
         int bestColumn = playerLastMove;
 
-        List<State> result = new ArrayList<State>();
         int toDo = 0;
         for(int i = 0 ; i < COLUMNS; ++i) {
             if (lastEmpty[i] >= 0) {
-                byte[][] newGrid = new byte[COLUMNS][ROWS];
-                int[] newLastEmpty = Arrays.copyOf(lastEmpty,COLUMNS);
-
-
-                for(int y = 0 ; y < COLUMNS; y++){
-                    newGrid[y] = Arrays.copyOf(grid[y],ROWS);
-                }
-
-                runners[i] = new BotHelper(i, PLAYER2, 1, newGrid, newLastEmpty, result);
-                threads[i] = new Thread(runners[i]);
-                threads[i].start();
-                //threads[i].run();
+                threads[i].run();
                 toDo++;
             }
         }
@@ -91,10 +88,11 @@ public class Bot {
                     bestRes = res;
                     bestColumn = res.column;
                 }
-                System.out.print(res.column + " " + (res.state == WIN ? "WIN " : (res.state == LOSE ? "LOSE " : "DRAW ")) + res.depth + " " + String.format("%.2f",res.probability )+ " ");
+
+                System.out.print(res.column + " " + (res.state == 1 ? "WIN " : (res.state == -1 ? "LOSE " : "DRAW ")) + res.depth + " " + String.format("%.2f",res.probability )+ " | ");
             }
             else
-                System.out.print(" ");
+                System.out.print("");//nothing
         }
 
 

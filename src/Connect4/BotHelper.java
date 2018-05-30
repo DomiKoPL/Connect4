@@ -1,8 +1,9 @@
 package Connect4;
 
+import java.util.Arrays;
 import java.util.List;
 
-public class BotHelper implements Runnable {
+public class BotHelper implements Runnable{
 
 
     private static final int maxDepth = 8;
@@ -18,32 +19,35 @@ public class BotHelper implements Runnable {
     private static final byte DRAW = 0;
     private static final byte WIN = 1;
     private int column, depth;
-    byte player;
+    private byte player;
 
-    private byte[][] grid;
+    private byte[][] grid = new byte[COLUMNS][ROWS];
     private int[] lastEmpty;
-    private int id;
     private final List<State> result;
 
 
     @Override
     public void run() {
         //System.out.println("Bot run");
+
+        this.lastEmpty = Arrays.copyOf(Bot.getInstance().getLastEmpty(),COLUMNS);
+        byte[][]copyGrid = Bot.getInstance().getGrid();
+        for (int i = 0 ; i < COLUMNS; i++){
+            this.grid[i] = Arrays.copyOf(copyGrid[i],ROWS);
+        }
+
         State temp = simulateMovements(column,player,depth);
         temp.column = column;
         result.add(temp);
         //System.out.println("Bot stop");
     }
 
-    public BotHelper(int column , byte player, int depth, byte[][] grid, int[] lastEmpty, List<State> result){
+    public BotHelper(int column , List<State> result){
 
         this.column = column;
-        this.player = player;
-        this.depth = depth;
-        this.grid = grid;
-        this.lastEmpty = lastEmpty;
+        this.player = PLAYER2;
+        this.depth = 1;
         this.result = result;
-        this.id = id;
     }
 
     private State simulateMovements(int column, byte player, int depth){
